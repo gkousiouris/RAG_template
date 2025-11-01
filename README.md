@@ -2,9 +2,9 @@
 This is a repo to hold a template structure for a RAG stack including all necessary dependencies.
 
 # Responsible AI Use Disclaimer
-In this section I describe the process that led to the development of the template RAG structure with the use of AI, including process details for future reference.--
+In this section I describe the process that led to the development of the template RAG structure with the use of AI, including process details for future reference.<br />
 
-The initial compose file was generated with the help of ChatGPT 5.0 with the following prompts:--
+The initial compose file was generated with the help of ChatGPT 5.0 with the following prompts:<br />
 `I want a docker compose file that will setup a local genai stack for rag`
 Following I queried about key requirements that I wanted to clarify based on the intended use of the RAG pipeline:
 `Is this solution multitenant?can it support different user sessions?`
