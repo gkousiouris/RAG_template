@@ -1,0 +1,105 @@
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    expose:
+      - "6333"
+      - "6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      # Make the server listen on all interfaces
+      OLLAMA_HOST: "0.0.0.0"
+    command: ["serve"]
+    # Healthcheck without shells or curl/wget
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # One-shot: waits for server to be healthy, then pulls the model.
+  # No shell, no curl — uses Ollama CLI directly.
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    # Share the same network namespace as 'ollama' so localhost works
+    network_mode: "service:ollama"
+    environment:
+      # Talk to the already-running server inside the shared netns
+      OLLAMA_HOST: "http://127.0.0.1:11434"
+    #entrypoint: ["ollama"]
+    command: ["pull", "llama3.2:3b"]
+    volumes:
+      - ollama_data:/root/.ollama
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-0.6
+    container_name: tei-embeddings
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      MODEL_ID: BAAI/bge-base-en-v1.5
+
+  unstructured:
+    image: quay.io/unstructured-io/unstructured-api:latest
+    container_name: unstructured
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      UNSTRUCTURED_API_KEY: "local-dev"
+    volumes:
+      - ./docs:/data/docs:rw
+
+  
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    depends_on:
+      qdrant:
+        condition: service_started
+      embeddings:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      WEBUI_SECRET_KEY: "change-me"
+      ENABLE_SIGNUP: "true"
+      ADMIN_EMAIL: "admin@example.com"
+      ADMIN_PASSWORD: "StrongPassword123!"
+      OLLAMA_API_BASE_URL: http://ollama:11434
+      VECTOR_DB: qdrant
+      QDRANT_URI: http://qdrant:6333
+      EMBEDDING_MODEL: http://tei-embeddings:80
+      DEFAULT_MODEL: llama3.2:3b
+      ENABLE_RAG_WEB_SEARCH: "false"
+    volumes:
+      - openwebui_data:/app/backend/data
+
+volumes:
+  qdrant_storage:
+  ollama_data:
+  openwebui_data:
